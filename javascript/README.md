@@ -92,7 +92,7 @@ To use the Azure MCP with VS Code Insiders with GitHub Copilot Agent Mode, follo
 
 This setup allows you to seamlessly interact with Azure Cosmos DB through the MCP server in VSCODE with Github Copilot as shown below.
 
-https://github.com/user-attachments/assets/c56a54c1-2bd6-422c-b55f-e8a17745b7ee
+<https://github.com/user-attachments/assets/c56a54c1-2bd6-422c-b55f-e8a17745b7ee>
 
 ### Add your project details to Claude Destkop's config file
 
@@ -118,4 +118,4 @@ Open Claude Desktop and Navigate to File -> Settings -> Developer -> Edit Config
 
 You should now have successfully configured the MCP server for Azure Cosmos DB with Claude Desktop. This setup allows you to seamlessly interact with Azure Cosmos DB through the MCP server as shown below.
 
-https://github.com/user-attachments/assets/ae3a14f3-9ca1-415d-8645-1c8367fd6943
+<https://github.com/user-attachments/assets/ae3a14f3-9ca1-415d-8645-1c8367fd6943>

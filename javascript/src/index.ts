@@ -8,20 +8,58 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 import { CosmosClient } from "@azure/cosmos";
 import * as dotenv from "dotenv";
-dotenv.config();
+import { fileURLToPath } from "url";
+import { dirname, resolve } from "path";
 
+// Load environment variables from .env in both src and dist contexts
+function loadEnv() {
+  // First, try default lookup (current working directory)
+  dotenv.config();
+
+  // Then, also try a .env one directory up from the compiled file (useful when running from dist)
+  try {
+    const __filename = fileURLToPath(import.meta.url);
+    const __dirname = dirname(__filename);
+    const parentEnvPath = resolve(__dirname, "..", ".env");
+    dotenv.config({ path: parentEnvPath });
+  } catch {
+    // best-effort; ignore if path resolution fails (e.g., non-Node environment)
+  }
+}
+
+loadEnv();
+
+
+// Validate and access environment configuration
+const requiredEnv = ["COSMOSDB_URI", "COSMOSDB_KEY", "COSMOS_DATABASE_ID"] as const;
+const missing = requiredEnv.filter((k) => !process.env[k]);
+if (missing.length) {
+  console.error(
+    `Missing required environment variables: ${missing.join(", ")}.\n` +
+      "Create a .env file in the 'javascript' folder with:\n" +
+      "COSMOSDB_URI=\nCOSMOSDB_KEY=\nCOSMOS_DATABASE_ID=\nCOSMOS_CONTAINER_ID= (optional if you will pass containerName in each tool call)\n"
+  );
+  process.exit(1);
+}
+
+const COSMOSDB_URI = process.env.COSMOSDB_URI as string;
+const COSMOSDB_KEY = process.env.COSMOSDB_KEY as string;
+const databaseId = process.env.COSMOS_DATABASE_ID as string;
+const defaultContainerId = process.env.COSMOS_CONTAINER_ID; // optional; can be provided per-call
 
 // Cosmos DB client initialization
-const cosmosClient = new CosmosClient({
-  endpoint: process.env.COSMOSDB_URI!,
-  key: process.env.COSMOSDB_KEY!,
-});
+const cosmosClient = new CosmosClient({ endpoint: COSMOSDB_URI, key: COSMOSDB_KEY });
 
-// Get DB and container config from env vars
-const databaseId = process.env.COSMOS_DATABASE_ID!;
-const containerId = process.env.COSMOS_CONTAINER_ID!;
-
-const container = cosmosClient.database(databaseId).container(containerId);
+// Helper to resolve the container per request (falls back to default if set)
+function resolveContainer(containerName?: string) {
+  const name = containerName ?? defaultContainerId;
+  if (!name) {
+    throw new Error(
+      "No container specified. Provide COSMOS_CONTAINER_ID in .env or pass 'containerName' in the tool call."
+    );
+  }
+  return cosmosClient.database(databaseId).container(name);
+}
 
 // Tool definitions
 const UPDATE_ITEM_TOOL: Tool = {
@@ -91,8 +129,9 @@ const QUERY_CONTAINER_TOOL: Tool = {
 
 async function updateItem(params: any) {
   try {
-    const { id, updates } = params;
-    const { resource } = await container.item(id).read();
+  const { id, updates, containerName } = params;
+  const container = resolveContainer(containerName);
+  const { resource } = await container.item(id).read();
     
     if (!resource) {
       throw new Error("Item not found");
@@ -100,7 +139,7 @@ async function updateItem(params: any) {
 
     const updatedItem = { ...resource, ...updates };
 
-    const { resource: updatedResource } = await container.item(id).replace(updatedItem);
+  const { resource: updatedResource } = await container.item(id).replace(updatedItem);
     return {
       success: true,
       message: `Item updated successfully`,
@@ -117,7 +156,8 @@ async function updateItem(params: any) {
 
 async function putItem(params: any) {
   try {
-    const { item } = params;
+  const { item, containerName } = params;
+  const container = resolveContainer(containerName);
     const { resource } = await container.items.create(item);
 
     return {
@@ -136,7 +176,8 @@ async function putItem(params: any) {
 
 async function getItem(params: any) {
   try {
-    const { id } = params;
+  const { id, containerName } = params;
+  const container = resolveContainer(containerName);
     const { resource } = await container.item(id).read();
 
     return {
@@ -155,7 +196,8 @@ async function getItem(params: any) {
 
 async function queryContainer(params: any) {
   try {
-    const { query, parameters } = params;
+  const { query, parameters, containerName } = params;
+  const container = resolveContainer(containerName);
     const { resources } = await container.items.query({ query, parameters }).fetchAll();
 
     return {
